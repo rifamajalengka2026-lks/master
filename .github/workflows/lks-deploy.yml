@@ -1,0 +1,41 @@
+name: Deploy Frontend to AWS Amplify
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "frontend/**"
+  workflow_dispatch:
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Validate Files
+        run: |
+          if [ ! -f frontend/index.html ] || [ ! -f frontend/app.js ] || [ ! -f amplify.yml ]; then
+            echo "Error: File index.html, app.js, atau amplify.yml tidak ada!"
+            exit 1
+          fi
+
+      - name: Trigger Amplify Build
+        run: |
+          APP_ID=$(aws amplify list-apps --query "apps[?name=='lks-amplify-order-app'].appId" --output text)
+          if [ -z "$APP_ID" ]; then
+            echo "Error: Aplikasi Amplify tidak ditemukan!"
+            exit 1
+          fi
+          echo "Memicu deployment untuk App ID: $APP_ID"
+          aws amplify start-job --app-id $APP_ID --branch-name master --job-type RELEASE
